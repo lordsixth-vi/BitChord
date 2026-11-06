@@ -232,6 +232,7 @@ import com.music.bitchord.ui.components.BrowseActionsMenu
 import com.music.bitchord.ui.components.BrowseTarget
 import com.music.bitchord.ui.components.ConfirmationAlert
 import com.music.bitchord.ui.components.InfoAlert
+import com.music.bitchord.ui.components.AudioVibesSheet
 import com.music.bitchord.ui.components.DownloadManagerPage
 import com.music.bitchord.ui.components.PlaylistPickerSheet
 import com.music.bitchord.ui.components.ReorderPlaylistPage
@@ -670,6 +671,7 @@ private fun BitChordApp(
     var discordDialog by remember { mutableStateOf<DiscordDialog?>(null) }
     var songActions by remember { mutableStateOf<Song?>(null) }
     var showLyricsOffset by remember { mutableStateOf(false) }
+    var showAudioVibes by remember { mutableStateOf(false) }
     /**
      * Whether the track menu that is up was opened from the player.
      *
@@ -4578,6 +4580,14 @@ private fun BitChordApp(
                 } else {
                     null
                 },
+                onAudioVibes = if (fromPlayer) {
+                    {
+                        songActions = null
+                        showAudioVibes = true
+                    }
+                } else {
+                    null
+                },
                 onLyricsOffset = if (fromPlayer) {
                     {
                         songActions = null
@@ -4587,6 +4597,11 @@ private fun BitChordApp(
                     null
                 },
             )
+        }
+        // Audio Vibes sits outside the track menu on purpose: the menu closes
+        // the moment a row is tapped, and the sheet has to outlive it.
+        if (showAudioVibes) {
+            AudioVibesSheet(onDismiss = { showAudioVibes = false })
         }
         // ---- Now Playing ----
         if (playerRaised) {

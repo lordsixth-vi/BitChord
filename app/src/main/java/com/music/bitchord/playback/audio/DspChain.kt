@@ -36,6 +36,12 @@ class DspChain(
     val equalizer: EqualizerProcessor = EqualizerProcessor(),
     val transition: TransitionFilterProcessor = TransitionFilterProcessor(),
     val loudness: LoudnessProcessor = LoudnessProcessor(),
+    /**
+     * The Audio Vibes reverb and lo-fi, between the equaliser and the
+     * transition filter: they colour the song the way the listener wants it,
+     * after tone correction and before the handoff and the final limiter.
+     */
+    val vibes: AudioVibesProcessor = AudioVibesProcessor(),
 ) : FloatAudioProcessor {
 
     private var currentSampleRate: Int = 0
@@ -45,6 +51,7 @@ class DspChain(
         this.currentSampleRate = sampleRate
         spatial.configure(sampleRate, channelCount)
         equalizer.configure(sampleRate, channelCount)
+        vibes.configure(sampleRate, channelCount)
         transition.configure(sampleRate, channelCount)
         loudness.configure(sampleRate, channelCount)
     }
@@ -79,6 +86,7 @@ class DspChain(
 
         spatial.process(block)
         equalizer.process(block)
+        vibes.process(block)
         transition.process(block)
         // The equaliser leaves its overs in place for the stages after it to
         // see; the loudness stage's limiter is what catches whatever survives.
@@ -90,6 +98,7 @@ class DspChain(
     override fun flush() {
         spatial.flush()
         equalizer.flush()
+        vibes.flush()
         transition.flush()
         loudness.flush()
     }
@@ -98,6 +107,7 @@ class DspChain(
         processCounter = 0L
         spatial.reset()
         equalizer.reset()
+        vibes.reset()
         transition.reset()
         loudness.reset()
     }

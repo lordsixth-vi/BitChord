@@ -14,6 +14,7 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
+import com.music.bitchord.playback.audio.VoiceMode
 import kotlinx.coroutines.flow.MutableStateFlow
 
 
@@ -250,6 +251,22 @@ object AppSettings {
      */
     val syncDownloadedPlaylists = MutableStateFlow(false)
 
+    /**
+     * Save a song for offline listening on its own once it has been played
+     * [autoDownloadPlays] times. On by default: it is the point of the feature,
+     * and it only ever fetches songs the listener keeps coming back to.
+     * See [com.music.bitchord.download.AutoDownload].
+     */
+    val autoDownloadEnabled = MutableStateFlow(true)
+
+    /** How many plays make a song worth keeping offline. */
+    val autoDownloadPlays = MutableStateFlow(DEFAULT_AUTO_DOWNLOAD_PLAYS)
+
+    /** The play counts the settings page offers. */
+    val AUTO_DOWNLOAD_PLAY_OPTIONS = listOf(2, 3, 5, 10, 15, 20)
+
+    const val DEFAULT_AUTO_DOWNLOAD_PLAYS = 3
+
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
 
@@ -419,6 +436,31 @@ object AppSettings {
 
     /** Repeat mode for the player — Off, All, or One. */
     val repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
+
+    // ---- Audio Vibes -------------------------------------------------------
+    // Speed is [playbackSpeed] above; these are the other three sliders of the
+    // Audio Vibes sheet. All of it applies to whatever is playing, and stays
+    // until reset. See [com.music.bitchord.playback.audio.AudioVibesProcessor].
+
+    /** Pitch multiplier, independent of speed. 1.0 = original pitch. */
+    val pitchScale = MutableStateFlow(1.0f)
+
+    /** How much room is mixed in, 0 (dry) to 1. */
+    val reverbAmount = MutableStateFlow(0f)
+
+    /** How muffled and warm the sound is, 0 (off) to 1. */
+    val lofiAmount = MutableStateFlow(0f)
+
+    /** Extra low end, 0 (off) to 1. */
+    val bassBoost = MutableStateFlow(0f)
+
+    /** Instrumental (voice taken out) or Vocals only; Off is the song as recorded. */
+    val voiceMode = MutableStateFlow(VoiceMode.OFF)
+
+    const val VIBES_SPEED_MIN = 0.5f
+    const val VIBES_SPEED_MAX = 2.0f
+    const val VIBES_PITCH_MIN = 0.5f
+    const val VIBES_PITCH_MAX = 2.0f
 
     /** Put the playing track's codec, bitrate and sample rate on the player. */
     val showNerdStats = MutableStateFlow(false)
@@ -920,6 +962,9 @@ object AppSettings {
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, false)
         syncDownloadedPlaylists.value = prefs.getBoolean(KEY_SYNC_DOWNLOADED_PLAYLISTS, false)
+        autoDownloadEnabled.value = prefs.getBoolean(KEY_AUTO_DOWNLOAD_ENABLED, true)
+        autoDownloadPlays.value = prefs.getInt(KEY_AUTO_DOWNLOAD_PLAYS, DEFAULT_AUTO_DOWNLOAD_PLAYS)
+            .coerceAtLeast(1)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
         automixPerformanceMode.value = runCatching {
@@ -967,6 +1012,13 @@ object AppSettings {
         repeatMode.value = prefs.getInt(KEY_REPEAT_MODE, Player.REPEAT_MODE_OFF)
         showNerdStats.value = prefs.getBoolean(KEY_NERD_STATS, false)
         showListenTogetherButton.value = prefs.getBoolean(KEY_LISTEN_TOGETHER_BUTTON, false)
+        pitchScale.value = prefs.getFloat(KEY_VIBES_PITCH, 1.0f).coerceIn(VIBES_PITCH_MIN, VIBES_PITCH_MAX)
+        reverbAmount.value = prefs.getFloat(KEY_VIBES_REVERB, 0f).coerceIn(0f, 1f)
+        lofiAmount.value = prefs.getFloat(KEY_VIBES_LOFI, 0f).coerceIn(0f, 1f)
+        bassBoost.value = prefs.getFloat(KEY_VIBES_BASS, 0f).coerceIn(0f, 1f)
+        voiceMode.value = runCatching {
+            VoiceMode.valueOf(prefs.getString(KEY_VIBES_VOICE, null) ?: VoiceMode.OFF.name)
+        }.getOrDefault(VoiceMode.OFF)
         reduceAnimation.value = prefs.getBoolean(KEY_REDUCE_ANIMATION, false)
         onboardingComplete.value = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
         highPerformanceMode.value = prefs.getBoolean(KEY_HIGH_PERFORMANCE_MODE, false)
@@ -1214,6 +1266,17 @@ object AppSettings {
         prefs.edit().putString(KEY_QUALITY_DOWNLOAD, value.name).apply()
     }
 
+    fun setAutoDownloadEnabled(value: Boolean) {
+        autoDownloadEnabled.value = value
+        prefs.edit().putBoolean(KEY_AUTO_DOWNLOAD_ENABLED, value).apply()
+    }
+
+    fun setAutoDownloadPlays(value: Int) {
+        val plays = value.coerceAtLeast(1)
+        autoDownloadPlays.value = plays
+        prefs.edit().putInt(KEY_AUTO_DOWNLOAD_PLAYS, plays).apply()
+    }
+
     fun setWifiOnlyDownloads(value: Boolean) {
         wifiOnlyDownloads.value = value
         prefs.edit().putBoolean(KEY_WIFI_ONLY_DOWNLOADS, value).apply()
@@ -1332,6 +1395,68 @@ object AppSettings {
         showListenTogetherButton.value = value
         prefs.edit().putBoolean(KEY_LISTEN_TOGETHER_BUTTON, value).apply()
     }
+
+    fun setPitchScale(value: Float) {
+        val v = value.coerceIn(VIBES_PITCH_MIN, VIBES_PITCH_MAX)
+        pitchScale.value = v
+        prefs.edit().putFloat(KEY_VIBES_PITCH, v).apply()
+    }
+
+    fun setReverbAmount(value: Float) {
+        val v = value.coerceIn(0f, 1f)
+        reverbAmount.value = v
+        prefs.edit().putFloat(KEY_VIBES_REVERB, v).apply()
+    }
+
+    fun setLofiAmount(value: Float) {
+        val v = value.coerceIn(0f, 1f)
+        lofiAmount.value = v
+        prefs.edit().putFloat(KEY_VIBES_LOFI, v).apply()
+    }
+
+    fun setBassBoost(value: Float) {
+        val v = value.coerceIn(0f, 1f)
+        bassBoost.value = v
+        prefs.edit().putFloat(KEY_VIBES_BASS, v).apply()
+    }
+
+    fun setVoiceMode(value: VoiceMode) {
+        voiceMode.value = value
+        prefs.edit().putString(KEY_VIBES_VOICE, value.name).apply()
+    }
+
+    /** Sets every Audio Vibes control at once, as a preset does. */
+    fun setAudioVibes(
+        speed: Float,
+        pitch: Float,
+        reverb: Float,
+        lofi: Float,
+        bass: Float = 0f,
+        voice: VoiceMode = VoiceMode.OFF,
+    ) {
+        val s = speed.coerceIn(VIBES_SPEED_MIN, VIBES_SPEED_MAX)
+        val p = pitch.coerceIn(VIBES_PITCH_MIN, VIBES_PITCH_MAX)
+        val r = reverb.coerceIn(0f, 1f)
+        val l = lofi.coerceIn(0f, 1f)
+        val b = bass.coerceIn(0f, 1f)
+        playbackSpeed.value = s
+        pitchScale.value = p
+        reverbAmount.value = r
+        lofiAmount.value = l
+        bassBoost.value = b
+        voiceMode.value = voice
+        prefs.edit()
+            .putFloat(KEY_SPEED, s)
+            .putFloat(KEY_VIBES_PITCH, p)
+            .putFloat(KEY_VIBES_REVERB, r)
+            .putFloat(KEY_VIBES_LOFI, l)
+            .putFloat(KEY_VIBES_BASS, b)
+            .putString(KEY_VIBES_VOICE, voice.name)
+            .apply()
+    }
+
+    /** Back to the song as it was recorded. */
+    fun resetAudioVibes() = setAudioVibes(speed = 1f, pitch = 1f, reverb = 0f, lofi = 0f)
 
     fun setThemeMode(value: ThemeMode) {
         themeMode.value = value
@@ -2136,6 +2261,8 @@ object AppSettings {
     private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
     private const val KEY_EXPORT_DOWNLOADS = "export_downloads"
     private const val KEY_SYNC_DOWNLOADED_PLAYLISTS = "sync_downloaded_playlists"
+    private const val KEY_AUTO_DOWNLOAD_ENABLED = "auto_download_enabled"
+    private const val KEY_AUTO_DOWNLOAD_PLAYS = "auto_download_plays"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
     private const val KEY_AUTOMIX_PERFORMANCE_MODE = "automix_performance_mode"
@@ -2166,6 +2293,11 @@ object AppSettings {
     private const val KEY_NERD_STATS = "show_nerd_stats"
     private const val KEY_LISTEN_TOGETHER_BUTTON = "show_listen_together_button"
     private const val KEY_CACHE_LIMIT = "audio_cache_limit_bytes"
+    private const val KEY_VIBES_PITCH = "vibes_pitch_scale"
+    private const val KEY_VIBES_REVERB = "vibes_reverb_amount"
+    private const val KEY_VIBES_LOFI = "vibes_lofi_amount"
+    private const val KEY_VIBES_BASS = "vibes_bass_boost"
+    private const val KEY_VIBES_VOICE = "vibes_voice_mode"
     private const val KEY_REDUCE_ANIMATION = "reduce_animation"
     private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
     private const val KEY_HIGH_PERFORMANCE_MODE = "high_performance_mode"
