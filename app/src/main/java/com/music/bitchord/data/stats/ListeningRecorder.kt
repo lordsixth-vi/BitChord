@@ -3,6 +3,7 @@ package com.music.bitchord.data.stats
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.durationMillis
+import com.music.bitchord.download.AutoDownload
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -80,7 +81,12 @@ object ListeningRecorder {
             PLAY_FLOOR_MS
         }
         val counts = !playCounted && playedThisTrack >= threshold
-        if (counts) playCounted = true
+        if (counts) {
+            playCounted = true
+            // Once per listen, on the same rule the scrobbler uses — what lets
+            // a song played often enough be saved for offline.
+            AutoDownload.onPlayCounted(song)
+        }
 
         ListeningStats.record(enriched(song), step, counts)
 

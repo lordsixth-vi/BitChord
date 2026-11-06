@@ -74,6 +74,7 @@ import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.guava.future
+import com.music.bitchord.playback.audio.AudioVibesParams
 import com.music.bitchord.playback.audio.DspChain
 import com.music.bitchord.playback.cast.CastController
 import com.music.bitchord.playback.cast.CastPlayback
@@ -6702,6 +6703,7 @@ class PlaybackService : MediaLibraryService() {
     private fun applySettings(player: ExoPlayer) {
         player.skipSilenceEnabled = AppSettings.skipSilence.value
         player.setPlaybackSpeed(AppSettings.playbackSpeed.value)
+        setPitch(player, AppSettings.pitchScale.value)
         // Restore persisted shuffle and repeat states on startup. Assign both
         // values: Android can destroy and recreate the service while retaining
         // this process, so QueueShuffle's process-wide object may still hold
@@ -7026,6 +7028,18 @@ class PlaybackService : MediaLibraryService() {
         spare?.let(body)
     }
 
+    /**
+     * Sets [target]'s pitch without touching its speed. Speed changes go
+     * through [ExoPlayer.setPlaybackSpeed], which keeps whatever pitch is set,
+     * so the two sliders of Audio Vibes stay independent.
+     */
+    private fun setPitch(target: ExoPlayer, pitch: Float) {
+        val current = target.playbackParameters
+        if (kotlin.math.abs(current.pitch - pitch) > 0.001f) {
+            target.playbackParameters = androidx.media3.common.PlaybackParameters(current.speed, pitch)
+        }
+    }
+
     private fun observeSettings() {
         scope.launch {
             AppSettings.skipSilence.collect { on -> eachPlayer { it.skipSilenceEnabled = on } }
@@ -7096,6 +7110,24 @@ class PlaybackService : MediaLibraryService() {
                 if (crossfade?.isTransitioning() == true) return@collect
                 crossfade?.applyPlaybackSpeed(speed) ?: eachPlayer { it.setPlaybackSpeed(speed) }
             }
+        }
+        // Audio Vibes: pitch goes to both players, and the reverb and lo-fi
+        // amounts to the DSP chain's processor, which every sink reads from.
+        scope.launch {
+            AppSettings.pitchScale.collect { pitch -> eachPlayer { setPitch(it, pitch) } }
+        }
+        scope.launch {
+            combine(
+                AppSettings.reverbAmount,
+                AppSettings.lofiAmount,
+                AppSettings.bassBoost,
+                AppSettings.voiceMode,
+            ) { reverb, lofi, bass, voice ->
+                AudioVibesParams.reverb = reverb
+                AudioVibesParams.lofi = lofi
+                AudioVibesParams.bass = bass
+                AudioVibesParams.voice = voice
+            }.collect { }
         }
         scope.launch {
             combine(

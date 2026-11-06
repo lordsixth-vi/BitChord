@@ -169,6 +169,8 @@ fun SongActionsMenu(
      * except the player, where "this track" means something.
      */
     onCopyLog: (() -> Unit)? = null,
+    /** Opens the Audio Vibes sheet, offered only by the main player's menu. */
+    onAudioVibes: (() -> Unit)? = null,
     /** Opens the timing control offered only by the main player's menu. */
     onLyricsOffset: (() -> Unit)? = null,
     /**
@@ -372,7 +374,7 @@ fun SongActionsMenu(
 
         // The player's own: about the track playing right now rather than
         // about the song as a thing in a library.
-        if (showSleepTimer || onLyricsOffset != null || onCopyLog != null) {
+        if (showSleepTimer || onAudioVibes != null || onLyricsOffset != null || onCopyLog != null) {
             if (startsGroup()) IosMenuSeparator()
             if (showSleepTimer) {
                 ActionRow(
@@ -381,6 +383,14 @@ fun SongActionsMenu(
                     value = sleepTimerStatus(),
                     accent = palette.accent,
                 ) { pickingSleepTimer = true }
+            }
+            onAudioVibes?.let {
+                ActionRow(
+                    icon = SfIcons.GraphicEq,
+                    label = stringResource(R.string.audio_vibes),
+                    accent = palette.accent,
+                    onClick = it,
+                )
             }
             // Local files and completed downloads use the same player lyric
             // clock (including embedded synced lyrics), so they need this

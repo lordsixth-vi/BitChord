@@ -40,6 +40,7 @@ import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.stats.ArtistFacts
 import com.music.bitchord.data.stats.ListeningStats
+import com.music.bitchord.download.AutoDownload
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.download.PlaylistSync
 import androidx.work.Configuration
@@ -161,6 +162,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // What's already saved to Downloads, so the song menu can say so
         // without a media-store query per row.
         Downloads.init(this)
+        // Counts plays per song and saves the favourites for offline; reads
+        // both Downloads and AppSettings, so after the two of them.
+        AutoDownload.init(this)
         // After both of the things a check reads: the setting and the record.
         PlaylistSync.init(this)
         // The device's own listening record. Opened here rather than in

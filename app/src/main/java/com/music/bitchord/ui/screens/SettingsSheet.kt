@@ -278,6 +278,8 @@ fun SettingsScreen(
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
     val syncDownloadedPlaylists by AppSettings.syncDownloadedPlaylists.collectAsStateWithLifecycle()
+    val autoDownloadEnabled by AppSettings.autoDownloadEnabled.collectAsStateWithLifecycle()
+    val autoDownloadPlays by AppSettings.autoDownloadPlays.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideStatusBarInPlayer by AppSettings.hideStatusBarInPlayer.collectAsStateWithLifecycle()
@@ -625,6 +627,25 @@ fun SettingsScreen(
                     onCheckedChange = AppSettings::setSyncDownloadedPlaylists,
                     subtitle = stringResource(R.string.sync_downloaded_playlists_subtitle),
                 )
+            }
+            val autoDownloadTitle = stringResource(R.string.auto_download_favorites)
+            row(autoDownloadTitle, "offline", "automatic", "favourites", "plays", "played") {
+                SettingsSubRow(
+                    title = autoDownloadTitle,
+                    checked = autoDownloadEnabled,
+                    onCheckedChange = AppSettings::setAutoDownloadEnabled,
+                    subtitle = stringResource(R.string.auto_download_favorites_subtitle),
+                )
+            }
+            if (autoDownloadEnabled) {
+                val autoDownloadAfterTitle = stringResource(R.string.auto_download_after)
+                row(autoDownloadAfterTitle, "offline", "automatic", "plays", "times", divided = false) {
+                    SettingsRow(
+                        title = autoDownloadAfterTitle,
+                        value = stringResource(R.string.auto_download_plays_count, autoDownloadPlays),
+                        onClick = { onOpenChoice(SettingsChoiceKind.AUTO_DOWNLOAD_PLAYS) },
+                    )
+                }
             }
         }
 
@@ -2678,6 +2699,7 @@ enum class SettingsChoiceKind(@param:StringRes val title: Int) {
     AUDIO_QUALITY_WIFI(R.string.on_wifi),
     AUDIO_QUALITY_CELLULAR(R.string.on_mobile_data),
     DOWNLOAD_QUALITY(R.string.download_quality),
+    AUTO_DOWNLOAD_PLAYS(R.string.auto_download_after),
     AUTOMIX_PERFORMANCE(R.string.automix_performance),
     BIT_PERFECT(R.string.bit_perfect_output),
     FONT(R.string.font),
@@ -2757,6 +2779,22 @@ fun SettingsChoicePage(
                     footer = stringResource(R.string.download_quality_dialog_subtitle),
                 ) { quality ->
                     AppSettings.setDownloadQuality(quality)
+                    onChosen()
+                }
+            }
+
+            SettingsChoiceKind.AUTO_DOWNLOAD_PLAYS -> {
+                val selected by AppSettings.autoDownloadPlays.collectAsStateWithLifecycle()
+                // A value set some other way (a backup, an older build) still
+                // shows up ticked rather than leaving the list with no answer.
+                val options = (AppSettings.AUTO_DOWNLOAD_PLAY_OPTIONS + selected).distinct().sorted()
+                ChoiceGroup(
+                    options = options,
+                    selected = selected,
+                    label = { stringResource(R.string.auto_download_plays_count, it) },
+                    footer = stringResource(R.string.auto_download_choice_footer),
+                ) { plays ->
+                    AppSettings.setAutoDownloadPlays(plays)
                     onChosen()
                 }
             }
