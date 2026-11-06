@@ -263,7 +263,7 @@ object AppSettings {
     val autoDownloadPlays = MutableStateFlow(DEFAULT_AUTO_DOWNLOAD_PLAYS)
 
     /** The play counts the settings page offers. */
-    val AUTO_DOWNLOAD_PLAY_OPTIONS = listOf(2, 3, 5, 10, 15, 20)
+    val AUTO_DOWNLOAD_PLAY_OPTIONS = listOf(1, 2, 3, 5, 10, 15, 20)
 
     const val DEFAULT_AUTO_DOWNLOAD_PLAYS = 3
 

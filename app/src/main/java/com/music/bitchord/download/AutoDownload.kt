@@ -84,13 +84,32 @@ object AutoDownload {
         // Already on its way.
         val inFlight = Downloads.active.value[id]
         if (inFlight is DownloadState.Queued || inFlight is DownloadState.Running) return
-        // Asked for quietly: on a metered connection with Wi-Fi-only on, the
-        // listener never asked for this download, so it must not turn up as a
-        // failed row on the Downloads page. The next play tries again.
-        if (!AppSettings.downloadsAllowedNow) return
+        // On a metered connection with Wi-Fi-only on, the listener never asked
+        // for this download, so it must not turn up as a failed row on the
+        // Downloads page. The next play tries again. It does say so once, though:
+        // Wi-Fi-only is on by default, and an app that quietly does nothing looks
+        // exactly like an app that is broken.
+        if (!AppSettings.downloadsAllowedNow) {
+            if (waitingNotified.add(id)) {
+                toast("\"${song.title}\" is ready to save offline, but \"Download over Wi-Fi only\" is on. Connect to Wi-Fi, or turn it off in Settings > Downloads.")
+            }
+            return
+        }
 
         Log.d(TAG, "auto-download: '${song.title}' played $plays times, saving for offline")
         runCatching { Downloads.enqueue(appContext, song) }
+            .onSuccess { toast("Saving \"${song.title}\" for offline listening") }
             .onFailure { Log.w(TAG, "auto-download could not queue ${song.videoId}: ${it.message}") }
+    }
+
+    /** Songs already told about waiting for Wi-Fi, so the message comes once per song per launch. */
+    private val waitingNotified = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    private fun toast(message: String) {
+        mainHandler.post {
+            android.widget.Toast.makeText(appContext, message, android.widget.Toast.LENGTH_LONG).show()
+        }
     }
 }

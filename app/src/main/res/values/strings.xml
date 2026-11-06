@@ -225,7 +225,7 @@
     <string name="vibes_voice_note">Works best on stereo songs with a centred singer. Results vary from song to song.</string>
     <string name="vibes_bass">Bass Boost</string>
     <string name="auto_download_favorites">Auto-download favorites</string>
-    <string name="auto_download_favorites_subtitle">Saves a song for offline listening once you have played it enough times</string>
+    <string name="auto_download_favorites_subtitle">Saves a song for offline listening once you have played it enough times. Follows the Wi-Fi only setting below.</string>
     <string name="auto_download_after">Download after</string>
     <string name="auto_download_plays_count">%d plays</string>
     <string name="auto_download_choice_footer">A play counts once you have listened to about half the song. Skipped songs do not count.</string>
